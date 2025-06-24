@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Məlumat Əlavə Et</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #fdfbfb, #ebedee);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      background: #fff;
+      width: 100%;
+      max-width: 450px;
+      padding: 30px 25px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+    h2 {
+      text-align: center;
+      color: #007BFF;
+      margin-bottom: 25px;
+    }
+    .input-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
+      color: #333;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s ease;
+    }
+    input:focus {
+      border-color: #007BFF;
+      outline: none;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background-color: #007BFF;
+      color: white;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
+    }
+    button:hover {
+      background-color: #0056b3;
+      transform: scale(1.03);
+    }
+    @media screen and (max-width: 480px) {
+      .container {
+        padding: 20px 15px;
+      }
+      input, button {
+        font-size: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Yeni Məlumat Əlavə Et</h2>
+
+    <div class="input-group">
+      <label for="carNumber">Maşın nömrəsi</label>
+      <input type="text" id="carNumber" placeholder="Məs: 99-AA-123" />
+    </div>
+    <div class="input-group">
+      <label for="farmer">Fermer</label>
+      <input type="text" id="farmer" placeholder="Fermer adı" />
+    </div>
+    <div class="input-group">
+      <label for="type1">1-ci növ</label>
+      <input type="text" id="type1" placeholder="Növ adı" />
+    </div>
+    <div class="input-group">
+      <label for="type2">2-ci növ</label>
+      <input type="text" id="type2" placeholder="Növ adı" />
+    </div>
+    <div class="input-group">
+      <label for="type3">3-cü növ</label>
+      <input type="text" id="type3" placeholder="Növ adı" />
+    </div>
+
+    <button onclick="addTemplate()">Yadda saxla</button>
+  </div>
+
+  <script>
+    const binId = '685a8fd78960c979a5b07001';
+    const archiveBinId = '685a8fe58960c979a5b0700f';
+    const apiKey = '$2a$10$XvrFlhL9CyMhkVKRFP0lLuHH5sxWiXCFPHoJvUMzymRReiRqgGOTK';
+
+    async function fetchTemplates(bin) {
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${bin}/latest`, {
+        headers: { 'X-Master-Key': apiKey }
+      });
+      const data = await res.json();
+      return data.record.templates || [];
+    }
+
+    async function saveTemplates(bin, templates) {
+      await fetch(`https://api.jsonbin.io/v3/b/${bin}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': apiKey
+        },
+        body: JSON.stringify({ templates })
+      });
+    }
+
+    async function addTemplate() {
+      const carNumber = document.getElementById('carNumber').value.trim();
+      const farmer = document.getElementById('farmer').value.trim();
+      const type1 = document.getElementById('type1').value.trim();
+      const type2 = document.getElementById('type2').value.trim();
+      const type3 = document.getElementById('type3').value.trim();
+
+      if (!carNumber || !farmer || !type1 || !type2 || !type3) {
+        alert("Bütün sahələri doldurun!");
+        return;
+      }
+
+      const today = new Date().toLocaleDateString('en-CA');
+      const newData = { carNumber, farmer, type1, type2, type3, date: today };
+
+      const daily = await fetchTemplates(binId);
+      const archive = await fetchTemplates(archiveBinId);
+
+      daily.push(newData);
+      archive.push(newData);
+
+      await saveTemplates(binId, daily);
+      await saveTemplates(archiveBinId, archive);
+
+      alert("Məlumat yadda saxlanıldı!");
+      document.querySelectorAll('input').forEach(i => i.value = '');
+    }
+
+    window.onload = async () => {
+      const daily = await fetchTemplates(binId);
+      const today = new Date().toLocaleDateString('en-CA');
+
+      if (daily.length > 0 && daily[0].date !== today) {
+        await saveTemplates(binId, []);
+      }
+    };
+  </script>
+</body>
+</html>
