@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Arxiv Məlumatlar</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f8ff;
+      padding: 10px;
+    }
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #007BFF;
+      margin-bottom: 20px;
+    }
+    .filter {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .filter input {
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+    th {
+      background-color: #007BFF;
+      color: white;
+    }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    .action-buttons button {
+      padding: 5px 10px;
+      margin: 2px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      color: white;
+    }
+    .edit-btn {
+      background-color: #28a745;
+    }
+    .delete-btn {
+      background-color: #dc3545;
+    }
+    @media (max-width: 768px) {
+      table, thead, tbody, th, td {
+        font-size: 13px;
+      }
+      .filter input {
+        font-size: 14px;
+        width: 100%;
+        margin-bottom: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Arxiv Məlumatlar</h2>
+
+    <div class="filter">
+      <input type="date" id="filterDate" onchange="filterByDate()" />
+    </div>
+
+    <table id="archiveTable">
+      <thead>
+        <tr>
+          <th>Maşın</th>
+          <th>Fermer</th>
+          <th>1-ci növ</th>
+          <th>2-ci növ</th>
+          <th>3-cü növ</th>
+          <th>Çəki (kg)</th>
+          <th>Tarix</th>
+          <th>Əməliyyat</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const archiveBinId = '685a8fe58960c979a5b0700f';
+    const apiKey = '$2a$10$XvrFlhL9CyMhkVKRFP0lLuHH5sxWiXCFPHoJvUMzymRReiRqgGOTK';
+    let allTemplates = [];
+
+    async function fetchTemplates() {
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${archiveBinId}/latest`, {
+        headers: { 'X-Master-Key': apiKey }
+      });
+      const data = await res.json();
+      return data.record.templates || [];
+    }
+
+    async function saveTemplates(templates) {
+      await fetch(`https://api.jsonbin.io/v3/b/${archiveBinId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': apiKey
+        },
+        body: JSON.stringify({ templates })
+      });
+    }
+
+    async function loadArchive() {
+      allTemplates = await fetchTemplates();
+      displayTemplates(allTemplates);
+    }
+
+    function displayTemplates(data) {
+      const tbody = document.querySelector("#archiveTable tbody");
+      tbody.innerHTML = '';
+
+      data.forEach((item, index) => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+          <td><input type="text" id="car-${index}" value="${item.carNumber}"></td>
+          <td><input type="text" id="farmer-${index}" value="${item.farmer}"></td>
+          <td><input type="text" id="type1-${index}" value="${item.type1}"></td>
+          <td><input type="text" id="type2-${index}" value="${item.type2}"></td>
+          <td><input type="text" id="type3-${index}" value="${item.type3}"></td>
+          <td><input type="number" id="weight-${index}" value="${item.weight || ''}"></td>
+          <td><input type="text" id="date-${index}" value="${item.date}" disabled></td>
+          <td class="action-buttons">
+            <button class="edit-btn" onclick="saveEdit(${index})">Yadda saxla</button>
+            <button class="delete-btn" onclick="deleteRow(${index})">Sil</button>
+          </td>
+        `;
+      });
+    }
+
+    async function saveEdit(index) {
+      allTemplates[index] = {
+        carNumber: document.getElementById(`car-${index}`).value,
+        farmer: document.getElementById(`farmer-${index}`).value,
+        type1: document.getElementById(`type1-${index}`).value,
+        type2: document.getElementById(`type2-${index}`).value,
+        type3: document.getElementById(`type3-${index}`).value,
+        weight: parseFloat(document.getElementById(`weight-${index}`).value),
+        date: document.getElementById(`date-${index}`).value
+      };
+      await saveTemplates(allTemplates);
+      alert("Dəyişiklik yadda saxlanıldı!");
+    }
+
+    async function deleteRow(index) {
+      if (!confirm("Bu məlumatı silmək istədiyinizə əminsiniz?")) return;
+      allTemplates.splice(index, 1);
+      await saveTemplates(allTemplates);
+      loadArchive();
+    }
+
+    function filterByDate() {
+      const selected = document.getElementById("filterDate").value;
+      if (!selected) {
+        displayTemplates(allTemplates);
+        return;
+      }
+      const filtered = allTemplates.filter(item => item.date === selected);
+      displayTemplates(filtered);
+    }
+
+    window.onload = loadArchive;
+  </script>
+</body>
+</html>
