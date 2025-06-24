@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Çəki Hesabatı</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f8ff;
+      padding: 10px;
+    }
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      color: #007BFF;
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+    th {
+      background-color: #007BFF;
+      color: white;
+    }
+    input[type="number"] {
+      width: 80px;
+      padding: 5px;
+      font-size: 14px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    .save-button {
+      padding: 6px 12px;
+      background-color: #28a745;
+      border: none;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .save-button:hover {
+      background-color: #218838;
+    }
+    .total {
+      font-weight: bold;
+      font-size: 18px;
+      margin: 15px 0;
+      text-align: center;
+      color: #007BFF;
+    }
+    @media (max-width: 768px) {
+      table, thead, tbody, th, td, tr {
+        font-size: 13px;
+      }
+      input[type="number"] {
+        width: 60px;
+      }
+      .save-button {
+        font-size: 12px;
+        padding: 5px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Gündəlik Çəki Hesabatı</h2>
+    <div class="total" id="totalWeight">Ümumi Çəki: 0 kg</div>
+    <table id="reportTable">
+      <thead>
+        <tr>
+          <th>Maşın</th>
+          <th>Fermer</th>
+          <th>1-ci növ</th>
+          <th>2-ci növ</th>
+          <th>3-cü növ</th>
+          <th>Çəki (kg)</th>
+          <th>Tarix</th>
+          <th>Əməliyyat</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const binId = '685a8fd78960c979a5b07001';
+    const archiveBinId = '685a8fe58960c979a5b0700f';
+    const apiKey = '$2a$10$XvrFlhL9CyMhkVKRFP0lLuHH5sxWiXCFPHoJvUMzymRReiRqgGOTK';
+
+    async function fetchTemplates(bin) {
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${bin}/latest`, {
+        headers: { 'X-Master-Key': apiKey }
+      });
+      const data = await res.json();
+      return data.record.templates || [];
+    }
+
+    async function saveTemplates(bin, templates) {
+      await fetch(`https://api.jsonbin.io/v3/b/${bin}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': apiKey
+        },
+        body: JSON.stringify({ templates })
+      });
+    }
+
+    async function loadReport() {
+      const templates = await fetchTemplates(binId);
+      renderTable(templates);
+      updateTotalWeight(templates);
+    }
+
+    function renderTable(templates) {
+      const tbody = document.querySelector("#reportTable tbody");
+      tbody.innerHTML = "";
+
+      templates.forEach((item, index) => {
+        const row = tbody.insertRow();
+
+        row.innerHTML = `
+          <td>${item.carNumber}</td>
+          <td>${item.farmer}</td>
+          <td>${item.type1}</td>
+          <td>${item.type2}</td>
+          <td>${item.type3}</td>
+          <td>
+            <input type="number" id="weight-${index}" value="${item.weight || ''}" ${item.weight ? 'disabled' : ''}>
+          </td>
+          <td>${item.date}</td>
+          <td>
+            ${item.weight ? '✔️' : `<button class="save-button" onclick="saveWeight(${index})">Yadda saxla</button>`}
+          </td>
+        `;
+      });
+    }
+
+    async function saveWeight(index) {
+      const input = document.getElementById(`weight-${index}`);
+      const weight = parseFloat(input.value);
+
+      if (!weight) {
+        alert("Zəhmət olmasa çəkini daxil edin!");
+        return;
+      }
+
+      const daily = await fetchTemplates(binId);
+      const archive = await fetchTemplates(archiveBinId);
+
+      daily[index].weight = weight;
+
+      // Əgər arxivdə həmin maşın və tarix varsa, onu da güncəllə
+      const match = archive.find(
+        x => x.carNumber === daily[index].carNumber && x.date === daily[index].date
+      );
+      if (match) {
+        match.weight = weight;
+      }
+
+      await saveTemplates(binId, daily);
+      await saveTemplates(archiveBinId, archive);
+      loadReport();
+    }
+
+    function updateTotalWeight(data) {
+      const total = data.reduce((sum, x) => sum + (parseFloat(x.weight) || 0), 0);
+      document.getElementById('totalWeight').textContent = `Ümumi Çəki: ${total.toFixed(1)} kg`;
+    }
+
+    window.onload = async () => {
+      const daily = await fetchTemplates(binId);
+      const today = new Date().toLocaleDateString('en-CA');
+      if (daily.length > 0 && daily[0].date !== today) {
+        await saveTemplates(binId, []);
+      }
+      loadReport();
+    };
+  </script>
+</body>
+</html>
